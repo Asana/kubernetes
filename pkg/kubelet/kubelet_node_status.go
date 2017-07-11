@@ -343,39 +343,39 @@ func (kl *Kubelet) tryUpdateNodeStatus(tryNumber int) error {
 	// If it result in a conflict, all retries are served directly from etcd.
 	opts := metav1.GetOptions{}
 	if tryNumber == 0 {
-                glog.Infof("Try getting opts, attempt %d", tryNumber)
+	   	glog.Infof("Try getting opts, attempt %d", tryNumber)
 		util.FromApiserverCache(&opts)
 	}
-	glog.Infof("Try getting node status, attempt %d", i)
+	glog.Infof("Try getting node status, attempt %d", tryNumber)
 	node, err := kl.kubeClient.Core().Nodes().Get(string(kl.nodeName), opts)
 	if err != nil {
 		return fmt.Errorf("error getting node %q: %v", kl.nodeName, err)
 	}
 
-        glog.Infof("Try cloning node status, attempt %d", tryNumber)
+	glog.Infof("Try cloning node status, attempt %d", tryNumber)
 	clonedNode, err := conversion.NewCloner().DeepCopy(node)
 	if err != nil {
 		return fmt.Errorf("error clone node %q: %v", kl.nodeName, err)
 	}
 
-        glog.Infof("Try casting node status, attempt %d", tryNumber)
+	glog.Infof("Try casting node status, attempt %d", tryNumber)
 	originalNode, ok := clonedNode.(*v1.Node)
 	if !ok || originalNode == nil {
 		return fmt.Errorf("failed to cast %q node object %#v to v1.Node", kl.nodeName, clonedNode)
 	}
 
-        glog.Infof("Try updating pod CIDR and set node status, attempt %d", tryNumber)
+	glog.Infof("Try updating pod CIDR and set node status, attempt %d", tryNumber)
 	kl.updatePodCIDR(node.Spec.PodCIDR)
 
 	kl.setNodeStatus(node)
 
-        glog.Infof("Try patching node status to API server, attempt %d", tryNumber)
+	glog.Infof("Try patching node status to API server, attempt %d", tryNumber)
 	// Patch the current status on the API server
 	updatedNode, err := nodeutil.PatchNodeStatus(kl.kubeClient, types.NodeName(kl.nodeName), originalNode, node)
 	if err != nil {
 		return err
 	}
-        glog.Infof("Try marking volume status, attempt %d", tryNumber)
+	glog.Infof("Try marking volume status, attempt %d", tryNumber)
 	// If update finishes successfully, mark the volumeInUse as reportedInUse to indicate
 	// those volumes are already updated in the node's status
 	kl.volumeManager.MarkVolumesAsReportedInUse(updatedNode.Status.VolumesInUse)

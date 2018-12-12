@@ -1189,3 +1189,55 @@ func TestDeploymentTimedOut(t *testing.T) {
 		}
 	}
 }
+
+//Set of simple tests for annotation related util functions
+func TestAnnotationUtils(t *testing.T) {
+     //Setup
+    tDeployment := generateDeployment("nginx")
+    tRS := generateRS(tDeployment)
+    tDeployment.Annotations[RevisionAnnotation] = "1"
+     //Test Case 1: Check if anotations are copied properly from deployment to RS
+    t.Run("SetNewReplicaSetAnnotations", func(t *testing.T) {
+        //Try to set the increment revision from 1 through 20
+        for i := 0; i < 20; i++ {
+             nextRevision := fmt.Sprintf("%d", i+1)
+            SetNewReplicaSetAnnotations(&tDeployment, &tRS, nextRevision, true)
+            //Now the ReplicaSets Revision Annotation should be i+1
+             if tRS.Annotations[RevisionAnnotation] != nextRevision {
+                t.Errorf("Revision Expected=%s Obtained=%s", nextRevision, tRS.Annotations[RevisionAnnotation])
+            }
+        }
+    })
+     //Test Case 2:  Check if annotations are set properly
+    t.Run("SetReplicasAnnotations", func(t *testing.T) {
+        updated := SetReplicasAnnotations(&tRS, 10, 11)
+        if !updated {
+            t.Errorf("SetReplicasAnnotations() failed")
+        }
+        value, ok := tRS.Annotations[DesiredReplicasAnnotation]
+        if !ok {
+            t.Errorf("SetReplicasAnnotations did not set DesiredReplicasAnnotation")
+        }
+        if value != "10" {
+            t.Errorf("SetReplicasAnnotations did not set DesiredReplicasAnnotation correctly value=%s", value)
+        }
+        if value, ok = tRS.Annotations[MaxReplicasAnnotation]; !ok {
+            t.Errorf("SetReplicasAnnotations did not set DesiredReplicasAnnotation")
+        }
+        if value != "11" {
+            t.Errorf("SetReplicasAnnotations did not set MaxReplicasAnnotation correctly value=%s", value)
+        }
+    })
+     //Test Case 3:  Check if annotations reflect deployments state
+    tRS.Annotations[DesiredReplicasAnnotation] = "1"
+    tRS.Status.AvailableReplicas = 1
+    tRS.Spec.Replicas = new(int32)
+    *tRS.Spec.Replicas = 1
+     t.Run("IsSaturated", func(t *testing.T) {
+        saturated := IsSaturated(&tDeployment, &tRS)
+        if !saturated {
+            t.Errorf("SetReplicasAnnotations Expected=true Obtained=false")
+        }
+    })
+    //Tear Down
+}
